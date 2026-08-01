@@ -1,6 +1,6 @@
 {
-  "name": "AI IDE",
-  "description": "Современная мобильная среда разработки с поддержкой ИИ-моделей, редактора кода, терминала и чата.",
+  "name": "NovaIDE",
+  "description": "Мобильная IDE NovaIDE с поддержкой ИИ-моделей, редактора кода, терминала и чата.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

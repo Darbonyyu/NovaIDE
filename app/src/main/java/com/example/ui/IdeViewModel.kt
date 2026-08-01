@@ -16,7 +16,7 @@ import org.json.JSONObject
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class IdeViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository: IdeRepository = IdeRepository(AppDatabase.getInstance(application))
+    private val repository: IdeRepository = IdeRepository(AppDatabase.getInstance(application), application)
 
     val allProjects: StateFlow<List<Project>> = repository.allProjects
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -218,7 +218,7 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
                 attachedFilesJson = org.json.JSONArray(attachments).toString()
             )
             repository.insertChatMessage(userMsg)
-            startStreamingResponse(userText)
+            startStreamingResponse(userText, attachments = attachments)
         }
     }
 
@@ -236,7 +236,7 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun startStreamingResponse(prompt: String, specificCode: String? = null) {
+    private fun startStreamingResponse(prompt: String, specificCode: String? = null, attachments: List<String> = emptyList()) {
         currentGenerationJob?.cancel()
         currentGenerationJob = viewModelScope.launch {
             _isGenerating.value = true
@@ -254,7 +254,8 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
                     provider = provider,
                     projectFiles = files,
                     activeFile = active,
-                    specificCodeToModify = specificCode
+                    specificCodeToModify = specificCode,
+                    attachedFiles = attachments
                 ).collect { chunk ->
                     fullResponse += chunk
                     val parsed = com.example.ai.AiEngine.parseResponseToAiResponse(fullResponse)
@@ -520,6 +521,65 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 withContext(kotlinx.coroutines.Dispatchers.Main) {
                     showToast("Ошибка импорта: ${e.message}")
+                }
+            }
+        }
+    }
+
+    fun importDeviceFileAndAttach(context: android.content.Context, uri: android.net.Uri) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                var fileName = "file_${System.currentTimeMillis()}"
+                val cursor = context.contentResolver.query(uri, null, null, null, null)
+                cursor?.use {
+                    if (it.moveToFirst()) {
+                        val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                        if (nameIndex >= 0) {
+                            fileName = it.getString(nameIndex) ?: fileName
+                        }
+                    }
+                }
+
+                val mimeType = context.contentResolver.getType(uri) ?: ""
+                val isImage = mimeType.startsWith("image") || 
+                              fileName.endsWith(".png", true) || 
+                              fileName.endsWith(".jpg", true) || 
+                              fileName.endsWith(".jpeg", true) || 
+                              fileName.endsWith(".webp", true)
+
+                val contentText = context.contentResolver.openInputStream(uri)?.use { stream ->
+                    if (isImage) {
+                        val bytes = stream.readBytes()
+                        val base64 = android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)
+                        "[Изображение $fileName (data:image/${fileName.substringAfterLast(".", "png")};base64,$base64)]"
+                    } else {
+                        val bytes = stream.readBytes()
+                        try {
+                            bytes.toString(Charsets.UTF_8)
+                        } catch (e: Exception) {
+                            "[Бинарный файл $fileName, размер: ${bytes.size} байт]"
+                        }
+                    }
+                } ?: ""
+
+                val ext = fileName.substringAfterLast(".", "txt")
+                val pFile = ProjectFile(
+                    projectId = activeProjectId.value,
+                    path = fileName,
+                    filename = fileName,
+                    extension = ext,
+                    content = contentText,
+                    parentPath = ""
+                )
+                repository.saveFile(pFile)
+
+                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    attachFileToChat(fileName)
+                    showToast("Файл $fileName прикреплен")
+                }
+            } catch (e: Exception) {
+                withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    showToast("Ошибка прикрепления: ${e.message}")
                 }
             }
         }

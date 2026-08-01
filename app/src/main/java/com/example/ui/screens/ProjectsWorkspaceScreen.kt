@@ -38,6 +38,7 @@ import com.example.ui.components.workspace.*
 fun ProjectsWorkspaceScreen(viewModel: IdeViewModel) {
     val currentFiles by viewModel.currentFiles.collectAsState()
     val openTabs by viewModel.openTabs.collectAsState()
+    val settings by viewModel.settings.collectAsState()
     val currentProject by viewModel.currentProject.collectAsState()
     val activeTabId by viewModel.activeTabId.collectAsState()
     val activeFile by viewModel.activeFile.collectAsState()
@@ -240,6 +241,7 @@ fun ProjectsWorkspaceScreen(viewModel: IdeViewModel) {
 
                 // Editor Content / Live Preview Switch
                 com.example.ui.components.workspace.WorkspaceEditor(
+                    fontSize = settings.fontSize,
                     activeFile = activeFile,
                     isLivePreviewOpen = isLivePreviewOpen,
                     editorTextState = editorTextState,
@@ -253,6 +255,7 @@ fun ProjectsWorkspaceScreen(viewModel: IdeViewModel) {
 
         // Integrated Bottom Terminal Drawer
         com.example.ui.components.workspace.TerminalView(
+            fontSize = settings.fontSize - 2,
             isTerminalOpen = isTerminalOpen,
             terminalLogs = terminalLogs,
             terminalInput = terminalInput,

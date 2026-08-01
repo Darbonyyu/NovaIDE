@@ -23,6 +23,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -63,7 +64,7 @@ fun CodeBlockCard(
 
     Card(
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = DarkSurface),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         border = BorderStroke(1.dp, Color(0x2BFFFFFF)),
         modifier = Modifier
             .fillMaxWidth()
@@ -74,7 +75,7 @@ fun CodeBlockCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(DarkSurfaceVariant)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(horizontal = 14.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -194,7 +195,7 @@ fun CodeBlockCard(
                 Column(modifier = Modifier.padding(end = 16.dp)) {
                     lines.forEach { line ->
                         Text(
-                            text = buildAnnotatedCodeLine(line, codeBlock.language),
+                            text = buildAnnotatedCodeLine(line, codeBlock.language, MaterialTheme.colorScheme.onSurface),
                             fontFamily = FontFamily.Monospace,
                             fontSize = 12.sp,
                             lineHeight = 16.sp
@@ -207,7 +208,7 @@ fun CodeBlockCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(DarkSurfaceVariant.copy(alpha = 0.6f))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
                     .padding(12.dp)
             ) {
                 Text(
@@ -228,18 +229,18 @@ fun CodeBlockCard(
                 ) {
                     presetChips.forEach { chipText ->
                         Surface(
-                            shape = RoundedCornerShape(10.dp),
+                            shape = CircleShape,
                             color = MaterialTheme.colorScheme.surface,
-                            border = BorderStroke(0.5.dp, Color(0x33FFFFFF)),
+                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
                             modifier = Modifier.clickable {
                                 onFollowUpSubmit(codeBlock, chipText)
                             }
                         ) {
                             Text(
                                 text = "+ $chipText",
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                color = Color.White
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     }
@@ -259,12 +260,12 @@ fun CodeBlockCard(
                         modifier = Modifier
                             .weight(1f)
                             .height(44.dp),
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(20.dp),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = DarkSurface,
-                            unfocusedContainerColor = DarkSurface,
-                            focusedBorderColor = AccentIndigo,
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
                             unfocusedBorderColor = Color(0x33FFFFFF)
                         )
                     )
@@ -280,13 +281,13 @@ fun CodeBlockCard(
                         },
                         modifier = Modifier
                             .size(40.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(AccentIndigo)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = "Submit modification",
-                            tint = Color.Black,
+                            tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(18.dp)
                         )
                     }

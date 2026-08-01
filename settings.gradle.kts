@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "AI IDE"
+rootProject.name = "NovaIDE"
 
 include(":app")

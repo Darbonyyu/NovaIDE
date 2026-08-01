@@ -1,17 +1,20 @@
+import re
 import os
 
-files = [
+files_to_check = [
+    './app/src/main/java/com/example/ui/components/CodeEditor.kt',
+    './app/src/main/java/com/example/ui/utils/SyntaxHighlighting.kt',
     './app/src/main/java/com/example/ui/components/CodeBlockCard.kt',
-    './app/src/main/java/com/example/ui/screens/ChatScreen.kt',
+    './app/src/main/java/com/example/ui/components/CodeDiffDialog.kt',
     './app/src/main/java/com/example/ui/components/CommandPaletteModal.kt',
-    './app/src/main/java/com/example/ui/screens/ProjectsWorkspaceScreen.kt'
+    './app/src/main/java/com/example/ui/screens/HistoryScreen.kt'
 ]
 
-for fpath in files:
-    with open(fpath, 'r') as f:
-        content = f.read()
-    
-    if 'automirrored' not in content:
-        content = content.replace('import androidx.compose.material.icons.filled.', 'import androidx.compose.material.icons.automirrored.filled.*\nimport androidx.compose.material.icons.filled.')
-        with open(fpath, 'w') as f:
-            f.write(content)
+for path in files_to_check:
+    if os.path.exists(path):
+        with open(path, 'r') as f:
+            content = f.read()
+        if 'MaterialTheme.' in content and 'import androidx.compose.material3.MaterialTheme' not in content:
+            content = content.replace('import androidx.compose.ui.Modifier', 'import androidx.compose.ui.Modifier\nimport androidx.compose.material3.MaterialTheme')
+            with open(path, 'w') as f:
+                f.write(content)

@@ -100,7 +100,8 @@ object AiEngine {
         provider: ApiProvider,
         projectFiles: List<ProjectFile>,
         activeFile: ProjectFile?,
-        specificCodeToModify: String? = null
+        specificCodeToModify: String? = null,
+        attachedFiles: List<String> = emptyList()
     ): kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.flow {
         val apiKey = provider.apiKey.ifBlank { BuildConfig.GEMINI_API_KEY }
         if (apiKey.isBlank() && provider.type != "OLLAMA") {
@@ -108,9 +109,9 @@ object AiEngine {
         }
 
         if (provider.type == "GEMINI") {
-            streamGeminiRestApi(apiKey, provider, prompt, projectFiles, activeFile, specificCodeToModify).collect { emit(it) }
+            streamGeminiRestApi(apiKey, provider, prompt, projectFiles, activeFile, specificCodeToModify, attachedFiles).collect { emit(it) }
         } else {
-            streamOpenAiCompatibleApi(apiKey, provider, prompt, projectFiles, activeFile, specificCodeToModify).collect { emit(it) }
+            streamOpenAiCompatibleApi(apiKey, provider, prompt, projectFiles, activeFile, specificCodeToModify, attachedFiles).collect { emit(it) }
         }
     }
 
@@ -120,7 +121,8 @@ object AiEngine {
         prompt: String,
         projectFiles: List<ProjectFile>,
         activeFile: ProjectFile?,
-        codeToModify: String?
+        codeToModify: String?,
+        attachedFiles: List<String> = emptyList()
     ): kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.flow {
         val base = provider.baseUrl.trimEnd('/')
         val urlStr = if (base.endsWith("/v1beta") || base.endsWith("/v1")) {
@@ -136,7 +138,7 @@ object AiEngine {
         conn.connectTimeout = 30000
         conn.readTimeout = 30000
 
-        val contextPrompt = buildContextPrompt(prompt, projectFiles, activeFile, codeToModify)
+        val contextPrompt = buildContextPrompt(prompt, projectFiles, activeFile, codeToModify, attachedFiles)
 
         val jsonBody = JSONObject().apply {
             put("contents", JSONArray().apply {
@@ -182,7 +184,8 @@ object AiEngine {
         prompt: String,
         projectFiles: List<ProjectFile>,
         activeFile: ProjectFile?,
-        codeToModify: String?
+        codeToModify: String?,
+        attachedFiles: List<String> = emptyList()
     ): kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.flow {
         val url = URL("${provider.baseUrl.trimEnd('/')}/chat/completions")
         val conn = url.openConnection() as HttpURLConnection
@@ -195,7 +198,7 @@ object AiEngine {
         conn.connectTimeout = 30000
         conn.readTimeout = 30000
 
-        val contextPrompt = buildContextPrompt(prompt, projectFiles, activeFile, codeToModify)
+        val contextPrompt = buildContextPrompt(prompt, projectFiles, activeFile, codeToModify, attachedFiles)
 
         val jsonBody = JSONObject().apply {
             put("model", provider.selectedModel)
@@ -396,9 +399,21 @@ object AiEngine {
         prompt: String,
         projectFiles: List<ProjectFile>,
         activeFile: ProjectFile?,
-        codeToModify: String?
+        codeToModify: String?,
+        attachedFiles: List<String> = emptyList()
     ): String {
         val contextPrompt = StringBuilder()
+        if (attachedFiles.isNotEmpty()) {
+            contextPrompt.append("ATTACHED FILES FOR CONTEXT:\n")
+            attachedFiles.forEach { fName ->
+                val matched = projectFiles.find { it.filename == fName || it.path == fName }
+                if (matched != null) {
+                    contextPrompt.append("File (${matched.path}):\n```${matched.extension}\n${matched.content}\n```\n\n")
+                } else {
+                    contextPrompt.append("File reference: $fName\n\n")
+                }
+            }
+        }
         if (projectFiles.isNotEmpty()) {
             contextPrompt.append("Project files:\n")
             projectFiles.take(5).forEach {

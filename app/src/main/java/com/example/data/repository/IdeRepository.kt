@@ -9,13 +9,28 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 
-class IdeRepository(private val db: AppDatabase) {
+import android.content.SharedPreferences
+
+class IdeRepository(private val db: AppDatabase, private val context: Context) {
+    private val prefs: SharedPreferences = context.getSharedPreferences("ai_ide_settings", Context.MODE_PRIVATE)
+
 
     val allProjects: Flow<List<Project>> = db.projectDao().getAllProjects()
     val allProviders: Flow<List<ApiProvider>> = db.apiProviderDao().getAllProviders()
     val allHistory: Flow<List<HistoryItem>> = db.historyDao().getAllHistory()
 
-    private val _settings = MutableStateFlow(AppSettings())
+    private val _settings = MutableStateFlow(loadSettings())
+    
+    private fun loadSettings(): AppSettings {
+        return AppSettings(
+            themeMode = prefs.getString("themeMode", "DARK") ?: "DARK",
+            language = prefs.getString("language", "RU") ?: "RU",
+            fontSize = prefs.getInt("fontSize", 14),
+            animationsEnabled = prefs.getBoolean("animationsEnabled", true),
+            biometricsEnabled = prefs.getBoolean("biometricsEnabled", false)
+        )
+    }
+
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
     fun getFilesForProject(projectId: Long): Flow<List<ProjectFile>> {
@@ -131,6 +146,14 @@ class IdeRepository(private val db: AppDatabase) {
 
     fun updateSettings(newSettings: AppSettings) {
         _settings.value = newSettings
+        prefs.edit().apply {
+            putString("themeMode", newSettings.themeMode)
+            putString("language", newSettings.language)
+            putInt("fontSize", newSettings.fontSize)
+            putBoolean("animationsEnabled", newSettings.animationsEnabled)
+            putBoolean("biometricsEnabled", newSettings.biometricsEnabled)
+            apply()
+        }
     }
 
     suspend fun seedInitialDataIfNeeded() {

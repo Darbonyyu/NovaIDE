@@ -1,6 +1,7 @@
 package com.example.ui.utils
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -12,7 +13,7 @@ import com.example.ui.theme.SyntaxNumber
 import com.example.ui.theme.SyntaxString
 import com.example.ui.theme.SyntaxType
 
-fun buildAnnotatedCodeLine(line: String, lang: String): AnnotatedString = buildAnnotatedString {
+fun buildAnnotatedCodeLine(line: String, lang: String, defaultColor: Color = Color.White): AnnotatedString = buildAnnotatedString {
     val trimmed = line.trimStart()
     if (trimmed.startsWith("//") || trimmed.startsWith("#") || trimmed.startsWith("/*") || trimmed.startsWith("* ")) {
         withStyle(style = SpanStyle(color = SyntaxComment)) {
@@ -53,7 +54,7 @@ fun buildAnnotatedCodeLine(line: String, lang: String): AnnotatedString = buildA
                 }
             }
             else -> {
-                withStyle(style = SpanStyle(color = Color.White)) {
+                withStyle(style = SpanStyle(color = defaultColor)) {
                     append(word)
                 }
             }

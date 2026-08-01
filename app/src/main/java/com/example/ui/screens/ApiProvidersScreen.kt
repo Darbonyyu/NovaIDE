@@ -85,8 +85,11 @@ fun ApiProvidersScreen(viewModel: IdeViewModel) {
                         modelInput = "gpt-4o"
                         showEditDialog = true
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentIndigo, contentColor = Color.Black),
-                    shape = RoundedCornerShape(10.dp)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    shape = CircleShape
                 ) {
                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(4.dp))
@@ -138,15 +141,15 @@ fun ApiProvidersScreen(viewModel: IdeViewModel) {
                                 if (isSelected) {
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = AccentIndigo,
-                                        contentColor = Color.Black
+                                        shape = CircleShape,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
                                     ) {
                                         Text(
                                             text = "АКТИВЕН",
                                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
                                             fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                                         )
                                     }
                                 }
@@ -208,7 +211,7 @@ fun ApiProvidersScreen(viewModel: IdeViewModel) {
                             Button(
                                 onClick = { viewModel.selectProvider(provider) },
                                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                                shape = RoundedCornerShape(10.dp),
+                                shape = CircleShape,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text("Переключиться на эту модель", color = MaterialTheme.colorScheme.onSurface)

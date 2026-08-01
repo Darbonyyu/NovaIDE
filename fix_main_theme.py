@@ -1,16 +1,8 @@
-package com.example
+import re
+with open('./app/src/main/java/com/example/MainActivity.kt', 'r') as f:
+    content = f.read()
 
-import android.os.Bundle
-import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Surface
-import androidx.compose.ui.Modifier
-import com.example.ui.MainScreen
-import com.example.ui.theme.AiIdeTheme
-
-import androidx.lifecycle.viewmodel.compose.viewModel
+replacement = """import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.isSystemInDarkTheme
 
@@ -35,4 +27,12 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-}
+}"""
+
+content = re.sub(r'class MainActivity : ComponentActivity\(\) \{[\s\S]*?\}\n\}', replacement, content)
+
+if 'import androidx.lifecycle.viewmodel.compose.viewModel' not in content:
+    content = content.replace('import androidx.compose.ui.Modifier', 'import androidx.compose.ui.Modifier\nimport androidx.lifecycle.viewmodel.compose.viewModel\nimport androidx.compose.runtime.collectAsState\nimport androidx.compose.foundation.isSystemInDarkTheme')
+
+with open('./app/src/main/java/com/example/MainActivity.kt', 'w') as f:
+    f.write(content)

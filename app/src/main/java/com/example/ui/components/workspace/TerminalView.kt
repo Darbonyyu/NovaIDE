@@ -21,7 +21,7 @@ import com.example.ui.theme.AccentIndigo
 import com.example.ui.theme.AccentOrange
 
 @Composable
-fun TerminalView(
+fun TerminalView(fontSize: Int = 11, 
     isTerminalOpen: Boolean,
     terminalLogs: List<String>,
     terminalInput: String,
@@ -34,7 +34,7 @@ fun TerminalView(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(200.dp),
-            color = Color(0xFF090A0F),
+            color = MaterialTheme.colorScheme.background,
             border = BorderStroke(1.dp, Color(0x33FFFFFF))
         ) {
             Column(
@@ -68,7 +68,7 @@ fun TerminalView(
                         Text(
                             text = log,
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
+                            fontSize = fontSize.sp,
                             color = if (log.startsWith("$ ")) AccentIndigo else Color.LightGray
                         )
                     }
@@ -78,16 +78,16 @@ fun TerminalView(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("$ ", fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = AccentIndigo)
+                    Text("$ ", fontFamily = FontFamily.Monospace, fontSize = (fontSize + 1).sp, color = AccentIndigo)
                     OutlinedTextField(
                         value = terminalInput,
                         onValueChange = onTerminalInputChange,
-                        placeholder = { Text("команда (ls, cat, ai, help)...", fontSize = 11.sp, color = Color.Gray) },
+                        placeholder = { Text("команда (ls, cat, ai, help)...", fontSize = fontSize.sp, color = Color.Gray) },
                         modifier = Modifier
                             .weight(1f)
                             .height(40.dp),
                         singleLine = true,
-                        textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, fontSize = 12.sp, color = Color.White),
+                        textStyle = LocalTextStyle.current.copy(fontFamily = FontFamily.Monospace, fontSize = (fontSize + 1).sp, color = MaterialTheme.colorScheme.onSurface),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Color.Transparent,
                             unfocusedBorderColor = Color.Transparent,

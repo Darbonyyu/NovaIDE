@@ -18,7 +18,7 @@ import com.example.data.models.ProjectFile
 import com.example.ui.components.CodeEditor
 
 @Composable
-fun WorkspaceEditor(
+fun WorkspaceEditor(fontSize: Int = 13, 
     activeFile: ProjectFile?,
     isLivePreviewOpen: Boolean,
     editorTextState: String,
@@ -32,7 +32,7 @@ fun WorkspaceEditor(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF090A0F))
+                .background(MaterialTheme.colorScheme.background)
         ) {
             // Line numbers
             Column(
@@ -46,7 +46,7 @@ fun WorkspaceEditor(
                     Text(
                         text = "${index + 1}",
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
+                        fontSize = fontSize.sp,
                         color = Color(0xFF4B5563)
                     )
                 }
@@ -54,6 +54,7 @@ fun WorkspaceEditor(
 
             // Code Area
             CodeEditor(
+                fontSize = fontSize,
                 code = editorTextState,
                 onCodeChange = onCodeChange,
                 modifier = Modifier

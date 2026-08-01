@@ -77,7 +77,7 @@ fun MainScreen(
                 .padding(innerPadding)
         ) {
             Crossfade(targetState = currentTab, label = "TabSwitch") { tab ->
-                saveableStateHolder.SaveableStateProvider(tab) {
+                saveableStateHolder.SaveableStateProvider(tab.route) {
                     when (tab) {
                     NavTab.Chat -> ChatScreen(
                         viewModel = viewModel,

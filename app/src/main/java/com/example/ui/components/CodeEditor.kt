@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextRange
@@ -27,7 +28,7 @@ import com.example.ui.utils.formatCode
 import kotlinx.coroutines.delay
 
 @Composable
-fun CodeEditor(
+fun CodeEditor(fontSize: Int = 13, 
     code: String,
     onCodeChange: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -56,7 +57,7 @@ fun CodeEditor(
         // Line numbers
         Column(
             modifier = Modifier
-                .background(DarkSurfaceVariant)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
                 .padding(vertical = 12.dp, horizontal = 8.dp)
                 .fillMaxHeight(),
             horizontalAlignment = androidx.compose.ui.Alignment.End
@@ -65,7 +66,7 @@ fun CodeEditor(
                 Text(
                     text = "${i + 1}",
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 13.sp,
+                    fontSize = fontSize.sp,
                     color = Color(0xFF4B5563),
                     lineHeight = 18.sp
                 )
@@ -91,12 +92,12 @@ fun CodeEditor(
                 .padding(12.dp),
             textStyle = TextStyle(
                 fontFamily = FontFamily.Monospace,
-                fontSize = 13.sp,
+                fontSize = fontSize.sp,
                 lineHeight = 18.sp,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onSurface
             ),
             cursorBrush = SolidColor(Color.White),
-            visualTransformation = CodeVisualTransformation(),
+            visualTransformation = CodeVisualTransformation(MaterialTheme.colorScheme.onSurface),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii)
         )
     }
@@ -118,12 +119,12 @@ private fun handleAutoClose(value: TextFieldValue, addedChar: Char): TextFieldVa
     return TextFieldValue(newText, selection)
 }
 
-class CodeVisualTransformation : VisualTransformation {
+class CodeVisualTransformation(val onSurfaceColor: Color) : VisualTransformation {
     override fun filter(text: androidx.compose.ui.text.AnnotatedString): TransformedText {
         val lines = text.text.lines()
         val annotatedString = androidx.compose.ui.text.buildAnnotatedString {
             lines.forEachIndexed { index, line ->
-                append(buildAnnotatedCodeLine(line, "kotlin"))
+                append(buildAnnotatedCodeLine(line, "kotlin", onSurfaceColor))
                 if (index < lines.size - 1) append("\n")
             }
         }

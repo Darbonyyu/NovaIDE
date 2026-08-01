@@ -1,5 +1,9 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import android.net.Uri
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -41,8 +45,30 @@ fun ChatScreen(
     val messages by viewModel.chatMessages.collectAsState()
     val isGenerating by viewModel.isGenerating.collectAsState()
     val attachedFiles by viewModel.attachedFiles.collectAsState()
+    val currentFiles by viewModel.currentFiles.collectAsState()
+    val activeFile by viewModel.activeFile.collectAsState()
+    
     var inputText by remember { mutableStateOf("") }
+    var attachMenuExpanded by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+
+    val context = LocalContext.current
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        uris.forEach { uri ->
+            viewModel.importDeviceFileAndAttach(context, uri)
+        }
+    }
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        uris.forEach { uri ->
+            viewModel.importDeviceFileAndAttach(context, uri)
+        }
+    }
 
     LaunchedEffect(messages.size, isGenerating) {
         if (messages.isNotEmpty()) {
@@ -66,7 +92,7 @@ fun ChatScreen(
     ) {
         // Chat Header Status Banner
         Surface(
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
             border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline)
         ) {
             Row(
@@ -140,14 +166,14 @@ fun ChatScreen(
                     ) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
-                            color = AccentIndigo,
+                            color = MaterialTheme.colorScheme.primary,
                             strokeWidth = 2.dp
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
                             text = "AI IDE анализирует код и файлы проекта...",
                             style = MaterialTheme.typography.bodySmall,
-                            color = AccentIndigo
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                 }
@@ -166,27 +192,32 @@ fun ChatScreen(
             ) {
                 attachedFiles.forEach { fName ->
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = AccentPurple.copy(alpha = 0.2f),
-                        border = BorderStroke(1.dp, AccentPurple)
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f))
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Default.AttachFile,
                                 contentDescription = null,
-                                tint = AccentPurple,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(14.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text(text = fName, style = MaterialTheme.typography.labelSmall, color = Color.White)
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = fName,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Remove",
-                                tint = Color.Gray,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                                 modifier = Modifier
                                     .size(14.dp)
                                     .clickable { viewModel.removeAttachedFile(fName) }
@@ -208,9 +239,9 @@ fun ChatScreen(
         ) {
             quickActionChips.forEach { chip ->
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)),
                     modifier = Modifier.clickable {
                         viewModel.sendMessage(chip.substringAfter(" "))
                     }
@@ -218,7 +249,7 @@ fun ChatScreen(
                     Text(
                         text = chip,
                         style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
@@ -228,45 +259,161 @@ fun ChatScreen(
         // Input Field Container
         Surface(
             color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 8.dp,
+            tonalElevation = 6.dp,
             border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
-                    onClick = {
-                        viewModel.attachFileToChat("ScreenLayout_Mock.png")
-                    },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AttachFile,
-                        contentDescription = "Attach File",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                // Paperclip Button + Dropdown File Selector
+                Box {
+                    IconButton(
+                        onClick = { attachMenuExpanded = true },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AttachFile,
+                            contentDescription = "Attach File",
+                            tint = if (attachedFiles.isNotEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = attachMenuExpanded,
+                        onDismissRequest = { attachMenuExpanded = false }
+                    ) {
+                        Text(
+                            text = "ЗАГРУЗИТЬ С УСТРОЙСТВА",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        DropdownMenuItem(
+                            text = { Text("📷 Выбрать фото из галереи", fontWeight = FontWeight.Medium) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Image,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            onClick = {
+                                attachMenuExpanded = false
+                                imagePickerLauncher.launch("image/*")
+                            }
+                        )
+
+                        DropdownMenuItem(
+                            text = { Text("📁 Выбрать файл с телефона", fontWeight = FontWeight.Medium) },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.FolderOpen,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            },
+                            onClick = {
+                                attachMenuExpanded = false
+                                filePickerLauncher.launch("*/*")
+                            }
+                        )
+
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                        Text(
+                            text = "ПРИКРЕПИТЬ ИЗ ПРОЕКТА",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        activeFile?.let { actFile ->
+                            val isActAttached = attachedFiles.contains(actFile.filename) || attachedFiles.contains(actFile.path)
+                            DropdownMenuItem(
+                                text = { Text("Активный: ${actFile.filename}", fontWeight = FontWeight.Bold) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = if (isActAttached) Icons.Default.Check else Icons.Default.InsertDriveFile,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary
+                                    )
+                                },
+                                onClick = {
+                                    if (isActAttached) {
+                                        viewModel.removeAttachedFile(actFile.filename)
+                                        viewModel.removeAttachedFile(actFile.path)
+                                    } else {
+                                        viewModel.attachFileToChat(actFile.filename)
+                                    }
+                                    attachMenuExpanded = false
+                                }
+                            )
+                            HorizontalDivider()
+                        }
+
+                        val nonFolderFiles = currentFiles.filter { !it.isFolder }
+                        if (nonFolderFiles.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("Нет файлов в проекте", color = MaterialTheme.colorScheme.onSurfaceVariant) },
+                                onClick = { attachMenuExpanded = false }
+                            )
+                        } else {
+                            nonFolderFiles.forEach { file ->
+                                val isAttached = attachedFiles.contains(file.filename) || attachedFiles.contains(file.path)
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = file.path,
+                                            fontWeight = if (isAttached) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = if (isAttached) Icons.Default.Check else Icons.Default.Code,
+                                            contentDescription = null,
+                                            tint = if (isAttached) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    },
+                                    onClick = {
+                                        if (isAttached) {
+                                            viewModel.removeAttachedFile(file.filename)
+                                            viewModel.removeAttachedFile(file.path)
+                                        } else {
+                                            viewModel.attachFileToChat(file.filename)
+                                        }
+                                        attachMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
+
+                Spacer(modifier = Modifier.width(4.dp))
 
                 OutlinedTextField(
                     value = inputText,
                     onValueChange = { inputText = it },
-                    placeholder = { Text("Спроси ИИ или набери задачу...", fontSize = 14.sp) },
+                    placeholder = { Text("Спроси ИИ или опиши задачу...", fontSize = 14.sp) },
                     modifier = Modifier
                         .weight(1f)
                         .heightIn(min = 44.dp, max = 110.dp),
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(22.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
                         unfocusedBorderColor = Color.Transparent
                     )
                 )
 
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
                 IconButton(
                     onClick = {
@@ -279,13 +426,19 @@ fun ChatScreen(
                     },
                     modifier = Modifier
                         .size(42.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (isGenerating) MaterialTheme.colorScheme.error else if (inputText.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                        .clip(CircleShape)
+                        .background(
+                            if (isGenerating) MaterialTheme.colorScheme.error 
+                            else if (inputText.isNotBlank()) MaterialTheme.colorScheme.primary 
+                            else MaterialTheme.colorScheme.surfaceVariant
+                        )
                 ) {
                     Icon(
                         imageVector = if (isGenerating) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
                         contentDescription = if (isGenerating) "Stop" else "Send",
-                        tint = if (isGenerating || inputText.isNotBlank()) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = if (isGenerating) MaterialTheme.colorScheme.onError
+                              else if (inputText.isNotBlank()) MaterialTheme.colorScheme.onPrimary
+                              else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
                 }

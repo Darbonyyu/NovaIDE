@@ -69,13 +69,13 @@ fun SettingsScreen(viewModel: IdeViewModel) {
                 Spacer(modifier = Modifier.width(10.dp))
                 Column {
                     Text(
-                        text = "Настройки AI IDE",
+                        text = if (language == "RU") "Настройки AI IDE" else "AI IDE Settings",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Параметры интерфейса, шрифтов, шифрования и бэкапа",
+                        text = if (language == "RU") "Параметры интерфейса, шрифтов, шифрования и бэкапа" else "Interface, fonts, encryption, and backup parameters",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -88,13 +88,13 @@ fun SettingsScreen(viewModel: IdeViewModel) {
         // Section: Appearance & Theme
         Card(
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
                 Text(
-                    text = "Внешний вид и Тема",
+                    text = if (language == "RU") "Внешний вид и Тема" else "Appearance & Theme",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = AccentIndigo
@@ -107,7 +107,7 @@ fun SettingsScreen(viewModel: IdeViewModel) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Тема оформления", style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                    Text(if (language == "RU") "Тема оформления" else "Theme", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                     Row {
                         FilterChip(
                             selected = themeMode == "DARK",
@@ -115,7 +115,7 @@ fun SettingsScreen(viewModel: IdeViewModel) {
                                 themeMode = "DARK"
                                 viewModel.updateSettings(settings.copy(themeMode = "DARK"))
                             },
-                            label = { Text("Тёмная") }
+                            label = { Text(if (language == "RU") "Тёмная" else "Dark") }
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         FilterChip(
@@ -124,7 +124,7 @@ fun SettingsScreen(viewModel: IdeViewModel) {
                                 themeMode = "LIGHT"
                                 viewModel.updateSettings(settings.copy(themeMode = "LIGHT"))
                             },
-                            label = { Text("Светлая") }
+                            label = { Text(if (language == "RU") "Светлая" else "Light") }
                         )
                     }
                 }
@@ -136,7 +136,7 @@ fun SettingsScreen(viewModel: IdeViewModel) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Язык интерфейса", style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                    Text(if (language == "RU") "Язык интерфейса" else "Interface Language", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                     Row {
                         FilterChip(
                             selected = language == "RU",
@@ -165,13 +165,13 @@ fun SettingsScreen(viewModel: IdeViewModel) {
         // Section: Editor & Fonts
         Card(
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
                 Text(
-                    text = "Редактор и Шрифты",
+                    text = if (language == "RU") "Редактор и Шрифты" else "Editor & Fonts",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = AccentPurple
@@ -180,9 +180,9 @@ fun SettingsScreen(viewModel: IdeViewModel) {
                 Spacer(modifier = Modifier.height(10.dp))
 
                 Text(
-                    text = "Размер шрифта в редакторе: ${fontSize.toInt()} sp",
+                    text = if (language == "RU") "Размер шрифта в редакторе: ${fontSize.toInt()} sp" else "Editor font size: ${fontSize.toInt()} sp",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
                 Slider(
@@ -203,7 +203,7 @@ fun SettingsScreen(viewModel: IdeViewModel) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Плавные анимации UI", style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                    Text(if (language == "RU") "Плавные анимации UI" else "Smooth UI animations", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                     Switch(
                         checked = animationsEnabled,
                         onCheckedChange = {
@@ -220,13 +220,13 @@ fun SettingsScreen(viewModel: IdeViewModel) {
         // Section: Security & Backup
         Card(
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = DarkSurface),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outline),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
                 Text(
-                    text = "Безопасность и Резервное Копирование",
+                    text = if (language == "RU") "Безопасность и Резервное Копирование" else "Security & Backup",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = AccentIndigo
@@ -239,7 +239,7 @@ fun SettingsScreen(viewModel: IdeViewModel) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Защита биометрией (Face / Fingerprint)", style = MaterialTheme.typography.bodyMedium, color = Color.White)
+                    Text(if (language == "RU") "Защита биометрией (Face / Fingerprint)" else "Biometric protection (Face / Fingerprint)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                     Switch(
                         checked = biometricsEnabled,
                         onCheckedChange = {
@@ -262,7 +262,7 @@ fun SettingsScreen(viewModel: IdeViewModel) {
                     ) {
                         Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Экспорт ZIP")
+                        Text(if (language == "RU") "Экспорт ZIP" else "Export ZIP")
                     }
 
                     OutlinedButton(
@@ -272,7 +272,7 @@ fun SettingsScreen(viewModel: IdeViewModel) {
                     ) {
                         Icon(Icons.Default.Upload, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Импорт ZIP")
+                        Text(if (language == "RU") "Импорт ZIP" else "Import ZIP")
                     }
                 }
             }
@@ -290,15 +290,15 @@ fun SettingsScreen(viewModel: IdeViewModel) {
         ) {
             Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(6.dp))
-            Text("Удалить все локальные данные", fontWeight = FontWeight.Bold)
+            Text(if (language == "RU") "Удалить все локальные данные" else "Delete all local data", fontWeight = FontWeight.Bold)
         }
     }
 
     if (showClearConfirm) {
         AlertDialog(
             onDismissRequest = { showClearConfirm = false },
-            title = { Text("Очистить все данные?") },
-            text = { Text("Это действие удалит все проекты, ключи API и историю сообщений.") },
+            title = { Text(if (language == "RU") "Очистить все данные?" else "Clear all data?") },
+            text = { Text(if (language == "RU") "Это действие удалит все проекты, ключи API и историю сообщений." else "This action will delete all projects, API keys and message history.") },
             confirmButton = {
                 Button(
                     onClick = {
@@ -307,11 +307,11 @@ fun SettingsScreen(viewModel: IdeViewModel) {
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = AccentOrange, contentColor = Color.White)
                 ) {
-                    Text("Удалить")
+                    Text(if (language == "RU") "Удалить" else "Delete")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showClearConfirm = false }) { Text("Отмена") }
+                TextButton(onClick = { showClearConfirm = false }) { Text(if (language == "RU") "Отмена" else "Cancel") }
             }
         )
     }

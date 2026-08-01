@@ -57,14 +57,14 @@ fun TopBar(
             // Project Selector Pill
             Box {
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.8f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)),
                     modifier = Modifier.clickable { projectMenuExpanded = true }
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Folder,
@@ -75,11 +75,11 @@ fun TopBar(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = currentProject?.name ?: "Мой Проект",
-                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
+                            style = MaterialTheme.typography.titleMedium.copy(fontSize = 13.sp),
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.widthIn(max = 120.dp)
+                            modifier = Modifier.widthIn(max = 110.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(
@@ -137,14 +137,14 @@ fun TopBar(
             // AI Model Pill Dropdown
             Box {
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)),
                     modifier = Modifier.clickable { providerMenuExpanded = true }
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.AutoAwesome,
@@ -154,13 +154,13 @@ fun TopBar(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = selectedProvider?.name ?: "Gemini 3.5",
+                            text = selectedProvider?.name ?: "Gemini",
                             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.widthIn(max = 110.dp)
+                            modifier = Modifier.widthIn(max = 100.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(
@@ -250,7 +250,7 @@ fun TopBar(
                 ) {
                     Text(
                         text = "AI",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )

@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -150,7 +151,7 @@ fun CommandPaletteModal(
                     title = file.filename,
                     subtitle = file.path,
                     category = "FILE",
-                    icon = Icons.Default.InsertDriveFile,
+                    icon = Icons.AutoMirrored.Filled.InsertDriveFile,
                     onExecute = { onOpenFile(file); onDismiss() }
                 )
             )

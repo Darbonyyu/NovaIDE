@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -124,7 +125,10 @@ fun ChatScreen(
                     onReplaceCode = { code -> viewModel.replaceActiveTabCode(code); onNavigateToWorkspace() },
                     onSaveCode = { code, lang -> viewModel.saveCodeBlockAsFile(code, lang); onNavigateToWorkspace() },
                     onCompareCode = { code -> viewModel.openCodeDiff(code) },
-                    onFollowUpSubmit = { block, prompt -> viewModel.followUpCodeBlock(block, prompt) }
+                    onFollowUpSubmit = { block, prompt -> viewModel.followUpCodeBlock(block, prompt) },
+                    onDelete = { viewModel.deleteMessage(msg.id) },
+                    onEdit = { newText -> viewModel.editMessage(msg.id, newText) },
+                    onRegenerate = { viewModel.regenerateMessage(msg.id) }
                 )
             }
 
@@ -266,21 +270,22 @@ fun ChatScreen(
 
                 IconButton(
                     onClick = {
-                        if (inputText.isNotBlank()) {
+                        if (isGenerating) {
+                            viewModel.stopGeneration()
+                        } else if (inputText.isNotBlank()) {
                             viewModel.sendMessage(inputText)
                             inputText = ""
                         }
                     },
-                    enabled = inputText.isNotBlank() && !isGenerating,
                     modifier = Modifier
                         .size(42.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(if (inputText.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                        .background(if (isGenerating) MaterialTheme.colorScheme.error else if (inputText.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Send,
-                        contentDescription = "Send",
-                        tint = if (inputText.isNotBlank()) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant,
+                        imageVector = if (isGenerating) Icons.Default.Stop else Icons.AutoMirrored.Filled.Send,
+                        contentDescription = if (isGenerating) "Stop" else "Send",
+                        tint = if (isGenerating || inputText.isNotBlank()) Color.Black else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -297,9 +302,17 @@ fun MessageBubbleItem(
     onReplaceCode: (String) -> Unit,
     onSaveCode: (String, String) -> Unit,
     onCompareCode: (String) -> Unit,
-    onFollowUpSubmit: (CodeBlock, String) -> Unit
+    onFollowUpSubmit: (CodeBlock, String) -> Unit,
+    onDelete: () -> Unit,
+    onEdit: (String) -> Unit,
+    onRegenerate: () -> Unit
 ) {
     val isUser = message.sender == "user"
+    var isEditing by remember { mutableStateOf(false) }
+    var editText by remember(message.content) { mutableStateOf(message.content) }
+    val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     val codeBlocks = remember(message.codeBlocksJson) {
         val list = mutableListOf<CodeBlock>()
         try {
@@ -319,13 +332,16 @@ fun MessageBubbleItem(
         list
     }
 
+    val timeFormat = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
+    val timeString = timeFormat.format(java.util.Date(message.timestamp))
+
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).animateContentSize(),
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 4.dp)
+            modifier = Modifier.padding(bottom = 4.dp, start = 4.dp, end = 4.dp)
         ) {
             Icon(
                 imageVector = if (isUser) Icons.Default.Person else Icons.Default.AutoAwesome,
@@ -340,6 +356,12 @@ fun MessageBubbleItem(
                 fontWeight = FontWeight.Bold,
                 color = if (isUser) AccentPurple else AccentIndigo
             )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = timeString,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+            )
         }
 
         Surface(
@@ -351,13 +373,63 @@ fun MessageBubbleItem(
             ),
             modifier = Modifier.widthIn(max = 340.dp)
         ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Text(
-                    text = message.content,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    lineHeight = 20.sp
-                )
+            Column(modifier = Modifier.padding(12.dp)) {
+                if (isEditing) {
+                    OutlinedTextField(
+                        value = editText,
+                        onValueChange = { editText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { isEditing = false }) {
+                            Text("Отмена", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        TextButton(onClick = {
+                            isEditing = false
+                            onEdit(editText)
+                        }) {
+                            Text("Сохранить", color = AccentIndigo)
+                        }
+                    }
+                } else {
+                    Text(
+                        text = message.content,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        lineHeight = 20.sp
+                    )
+                }
+            }
+        }
+        
+        // Actions row
+        Row(
+            modifier = Modifier.padding(top = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            if (!isEditing) {
+                if (isUser) {
+                    IconButton(onClick = { isEditing = true }, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Edit, contentDescription = "Edit", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else {
+                    IconButton(onClick = {
+                        clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(message.content))
+                        android.widget.Toast.makeText(context, "Скопировано", android.widget.Toast.LENGTH_SHORT).show()
+                    }, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.ContentCopy, contentDescription = "Copy", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    IconButton(onClick = { onRegenerate() }, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Regenerate", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                IconButton(onClick = { onDelete() }, modifier = Modifier.size(24.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f))
+                }
             }
         }
 

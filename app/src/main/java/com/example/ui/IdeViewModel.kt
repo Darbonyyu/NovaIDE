@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class IdeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: IdeRepository = IdeRepository(AppDatabase.getInstance(application))
@@ -147,7 +148,7 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun createNewFile(path: String, filename: String, content: String = "", isFolder: Boolean = false) {
         val projId = activeProjectId.value
-        val ext = filename.substringAfterLast('.', "")
+        val ext = if (isFolder) "" else filename.substringAfterLast('.', "")
         val fullPath = if (path.isBlank()) filename else "$path/$filename"
         viewModelScope.launch {
             val file = ProjectFile(
@@ -162,25 +163,44 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
             val newId = repository.saveFile(file)
             if (!isFolder) {
                 openFileTab(file.copy(id = newId))
+                showToast("Файл $filename создан")
+            } else {
+                showToast("Папка $filename создана")
             }
-            showToast("Файл $filename создан")
         }
     }
 
-    fun deleteFile(fileId: Long) {
+
+
+
+    fun deleteMessage(messageId: Long) {
         viewModelScope.launch {
-            repository.deleteFile(fileId)
-            closeTab(fileId)
-            showToast("Файл удален")
+            repository.deleteMessage(messageId)
         }
     }
 
-    fun attachFileToChat(fileName: String) {
-        _attachedFiles.value = _attachedFiles.value + fileName
+    fun editMessage(messageId: Long, newContent: String) {
+        viewModelScope.launch {
+            repository.updateChatMessage(messageId, newContent, "[]")
+        }
     }
 
-    fun removeAttachedFile(fileName: String) {
-        _attachedFiles.value = _attachedFiles.value.filter { it != fileName }
+    fun regenerateMessage(messageId: Long) {
+        viewModelScope.launch {
+            val msg = repository.getMessageById(messageId) ?: return@launch
+            val lastUserMsg = chatMessages.value.lastOrNull { it.sender == "user" && it.id < messageId }
+            if (lastUserMsg != null) {
+                repository.deleteMessage(messageId)
+                startStreamingResponse(lastUserMsg.content)
+            }
+        }
+    }
+
+    private var currentGenerationJob: kotlinx.coroutines.Job? = null
+
+    fun stopGeneration() {
+        currentGenerationJob?.cancel()
+        _isGenerating.value = false
     }
 
     fun sendMessage(userText: String) {
@@ -195,62 +215,14 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
                 sender = "user",
                 content = userText,
                 timestamp = System.currentTimeMillis(),
-                attachedFilesJson = JSONArray(attachments).toString()
+                attachedFilesJson = org.json.JSONArray(attachments).toString()
             )
             repository.insertChatMessage(userMsg)
-
-            _isGenerating.value = true
-
-            val provider = selectedProvider.value ?: ApiProvider(name = "Gemini", type = "GEMINI")
-            val files = currentFiles.value
-            val active = activeFile.value
-
-            val aiResult = AiEngine.generateAiResponse(
-                prompt = userText,
-                provider = provider,
-                projectFiles = files,
-                activeFile = active
-            )
-
-            val codeBlocksJson = JSONArray().apply {
-                aiResult.codeBlocks.forEach { b ->
-                    put(JSONObject().apply {
-                        put("id", b.id)
-                        put("code", b.code)
-                        put("language", b.language)
-                        put("explanation", b.explanation)
-                    })
-                }
-            }.toString()
-
-            val assistantMsg = ChatMessage(
-                projectId = projId,
-                sender = "assistant",
-                content = aiResult.explanationText,
-                timestamp = System.currentTimeMillis(),
-                codeBlocksJson = codeBlocksJson
-            )
-            repository.insertChatMessage(assistantMsg)
-
-            // Save history item
-            if (aiResult.codeBlocks.isNotEmpty()) {
-                repository.addHistory(
-                    HistoryItem(
-                        projectId = projId,
-                        title = userText.take(40),
-                        prompt = userText,
-                        providerName = provider.name,
-                        modelName = provider.selectedModel,
-                        codeSnippet = aiResult.codeBlocks.first().code
-                    )
-                )
-            }
-
-            _isGenerating.value = false
+            startStreamingResponse(userText)
         }
     }
 
-    fun followUpCodeBlock(codeBlock: CodeBlock, followUpPrompt: String) {
+    fun followUpCodeBlock(codeBlock: com.example.data.models.CodeBlock, followUpPrompt: String) {
         val projId = activeProjectId.value
         viewModelScope.launch {
             val userMsg = ChatMessage(
@@ -260,80 +232,122 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
                 timestamp = System.currentTimeMillis()
             )
             repository.insertChatMessage(userMsg)
+            startStreamingResponse(followUpPrompt, codeBlock.code)
+        }
+    }
 
+    private fun startStreamingResponse(prompt: String, specificCode: String? = null) {
+        currentGenerationJob?.cancel()
+        currentGenerationJob = viewModelScope.launch {
             _isGenerating.value = true
             val provider = selectedProvider.value ?: ApiProvider(name = "Gemini", type = "GEMINI")
+            val files = currentFiles.value
+            val active = activeFile.value
+            val projId = activeProjectId.value
 
-            val aiResult = AiEngine.generateAiResponse(
-                prompt = followUpPrompt,
-                provider = provider,
-                projectFiles = currentFiles.value,
-                activeFile = activeFile.value,
-                specificCodeToModify = codeBlock.code
-            )
+            var messageId: Long = 0
+            var fullResponse = ""
 
-            val codeBlocksJson = JSONArray().apply {
-                aiResult.codeBlocks.forEach { b ->
-                    put(JSONObject().apply {
-                        put("id", b.id)
-                        put("code", b.code)
-                        put("language", b.language)
-                        put("explanation", b.explanation)
-                    })
+            try {
+                com.example.ai.AiEngine.generateAiResponseStream(
+                    prompt = prompt,
+                    provider = provider,
+                    projectFiles = files,
+                    activeFile = active,
+                    specificCodeToModify = specificCode
+                ).collect { chunk ->
+                    fullResponse += chunk
+                    val parsed = com.example.ai.AiEngine.parseResponseToAiResponse(fullResponse)
+                    
+                    val codeBlocksJson = org.json.JSONArray().apply {
+                        parsed.codeBlocks.forEach { b ->
+                            put(org.json.JSONObject().apply {
+                                put("id", b.id)
+                                put("code", b.code)
+                                put("language", b.language)
+                                put("explanation", b.explanation)
+                            })
+                        }
+                    }.toString()
+
+                    if (messageId == 0L) {
+                        messageId = repository.insertChatMessage(
+                            ChatMessage(
+                                projectId = projId,
+                                sender = "assistant",
+                                content = parsed.explanationText,
+                                codeBlocksJson = codeBlocksJson,
+                                timestamp = System.currentTimeMillis()
+                            )
+                        )
+                    } else {
+                        repository.updateChatMessage(
+                            messageId = messageId,
+                            content = parsed.explanationText,
+                            codeBlocksJson = codeBlocksJson
+                        )
+                    }
                 }
-            }.toString()
+                
+                val parsed = com.example.ai.AiEngine.parseResponseToAiResponse(fullResponse)
+                if (parsed.codeBlocks.isNotEmpty()) {
+                    repository.addHistory(
+                        HistoryItem(
+                            projectId = projId,
+                            title = prompt.take(40),
+                            prompt = prompt,
+                            providerName = provider.name,
+                            modelName = provider.selectedModel,
+                            codeSnippet = parsed.codeBlocks.first().code
+                        )
+                    )
+                }
 
-            val assistantMsg = ChatMessage(
-                projectId = projId,
-                sender = "assistant",
-                content = aiResult.explanationText,
-                timestamp = System.currentTimeMillis(),
-                codeBlocksJson = codeBlocksJson
-            )
-            repository.insertChatMessage(assistantMsg)
-            _isGenerating.value = false
+            } catch (e: Exception) {
+                if (e !is kotlinx.coroutines.CancellationException) {
+                    if (messageId == 0L) {
+                        repository.insertChatMessage(
+                            ChatMessage(
+                                projectId = projId,
+                                sender = "assistant",
+                                content = "❌ Ошибка: ${e.message}",
+                                timestamp = System.currentTimeMillis()
+                            )
+                        )
+                    } else {
+                        repository.updateChatMessage(
+                            messageId = messageId,
+                            content = "$fullResponse\n\n❌ Ошибка: ${e.message}",
+                            codeBlocksJson = "[]"
+                        )
+                    }
+                }
+            } finally {
+                _isGenerating.value = false
+            }
         }
     }
 
     fun insertCodeToActiveTab(code: String) {
-        val active = activeFile.value
-        if (active != null) {
-            val newContent = active.content + "\n\n" + code
-            updateActiveFileContent(newContent)
-            showToast("Код добавлен в ${active.filename}")
-        } else {
-            // Create a new file
-            createNewFile("src", "GeneratedCode.kt", code)
-        }
+        val currentContent = activeFile.value?.content ?: return
+        updateActiveFileContent(currentContent + "\n" + code)
     }
 
     fun replaceActiveTabCode(code: String) {
-        val active = activeFile.value
-        if (active != null) {
-            updateActiveFileContent(code)
-            showToast("Содержимое ${active.filename} заменено")
-        } else {
-            createNewFile("src", "GeneratedCode.kt", code)
-        }
+        updateActiveFileContent(code)
     }
 
     fun saveCodeBlockAsFile(code: String, language: String) {
-        val ext = when (language.lowercase()) {
-            "kotlin", "kt" -> "kt"
-            "typescript", "ts" -> "ts"
-            "javascript", "js" -> "js"
-            "python", "py" -> "py"
-            "html" -> "html"
-            "css" -> "css"
-            "json" -> "json"
-            else -> "txt"
-        }
-        val fileName = "AiModule_${System.currentTimeMillis() / 1000}.$ext"
-        createNewFile("src", fileName, code)
+        createNewFile("", "generated_code.${if(language.isBlank()) "txt" else language}", code, false)
     }
 
+
+
+
+
+
     fun openCodeDiff(generatedCode: String) {
-        val original = activeFile.value?.content ?: "// No active file content"
+        val original = activeFile.value?.content ?: ""
         _diffToCompare.value = Pair(original, generatedCode)
     }
 
@@ -341,100 +355,84 @@ class IdeViewModel(application: Application) : AndroidViewModel(application) {
         _diffToCompare.value = null
     }
 
-    fun selectProvider(provider: ApiProvider) {
-        _selectedProvider.value = provider
-        showToast("Выбрана модель: ${provider.name}")
+    fun attachFileToChat(filename: String) {
+        _attachedFiles.value = _attachedFiles.value + filename
     }
-
-    fun testProviderConnection(provider: ApiProvider) {
-        viewModelScope.launch {
-            showToast("Тестирование соединения с ${provider.name}...")
-            val (success, statusText, latency) = AiEngine.testConnection(provider)
-            val updated = provider.copy(
-                latencyMs = latency.toLong(),
-                lastPingStatus = statusText
-            )
-            repository.saveProvider(updated)
-            showToast("Результат: $statusText (${latency}ms)")
-        }
-    }
-
-    fun saveProvider(provider: ApiProvider) {
-        viewModelScope.launch {
-            repository.saveProvider(provider)
-            showToast("Провайдер ${provider.name} сохранен")
-        }
-    }
-
-    fun deleteProvider(providerId: Long) {
-        viewModelScope.launch {
-            repository.deleteProvider(providerId)
-            showToast("Провайдер удален")
-        }
+    
+    fun removeAttachedFile(uriStr: String) {
+        _attachedFiles.value = _attachedFiles.value.filter { it != uriStr }
     }
 
     fun toggleTerminal() {
         _isTerminalOpen.value = !_isTerminalOpen.value
     }
 
-    fun runTerminalCommand(command: String) {
-        if (command.isBlank()) return
-        val currentLogs = _terminalLogs.value.toMutableList()
-        currentLogs.add("$$ $command")
-
-        when (command.trim().lowercase()) {
-            "help" -> {
-                currentLogs.add("Available Commands:")
-                currentLogs.add("  ls               - List project files")
-                currentLogs.add("  cat <file>       - Display file content")
-                currentLogs.add("  clear            - Clear console")
-                currentLogs.add("  ai <prompt>      - Quick AI command execution")
-            }
-            "clear" -> {
-                currentLogs.clear()
-            }
-            "ls" -> {
-                val files = currentFiles.value
-                if (files.isEmpty()) {
-                    currentLogs.add("Directory empty.")
-                } else {
-                    files.forEach { f ->
-                        currentLogs.add(if (f.isFolder) "📁 ${f.path}/" else "📄 ${f.path}")
-                    }
-                }
-            }
-            else -> {
-                if (command.startsWith("cat ")) {
-                    val filePath = command.substringAfter("cat ").trim()
-                    val f = currentFiles.value.find { it.filename == filePath || it.path == filePath }
-                    if (f != null) {
-                        currentLogs.add(f.content.take(1000))
-                    } else {
-                        currentLogs.add("cat: $filePath: No such file")
-                    }
-                } else if (command.startsWith("ai ")) {
-                    val prompt = command.substringAfter("ai ").trim()
-                    currentLogs.add("[AI Agent]: Executing fast task for '$prompt'...")
-                    sendMessage(prompt)
-                } else {
-                    currentLogs.add("bash: $command: command not found in sandbox")
-                }
-            }
-        }
-        _terminalLogs.value = currentLogs
-    }
-
-    fun toggleCommandPalette() {
-        _isCommandPaletteOpen.value = !_isCommandPaletteOpen.value
-    }
-
     fun toggleLivePreview() {
         _isLivePreviewOpen.value = !_isLivePreviewOpen.value
     }
+    
+    fun toggleCommandPalette() {
+        _isCommandPaletteOpen.value = !_isCommandPaletteOpen.value
+    }
+    
+    fun selectProvider(provider: ApiProvider) {
+        _selectedProvider.value = provider
+    }
+
+    fun saveProvider(provider: ApiProvider) {
+        viewModelScope.launch {
+            repository.saveProvider(provider) // repository uses insertProvider
+        }
+    }
+
+    fun deleteProvider(id: Long) {
+        viewModelScope.launch {
+            repository.deleteProvider(id)
+        }
+    }
+
+    fun testProviderConnection(provider: ApiProvider) {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val (success, message, _) = com.example.ai.AiEngine.testConnection(provider)
+            withContext(kotlinx.coroutines.Dispatchers.Main) {
+                if (success) {
+                    showToast("Успешно: $message")
+                } else {
+                    showToast("Ошибка: $message")
+                }
+            }
+        }
+    }
 
     fun updateSettings(newSettings: AppSettings) {
-        repository.updateSettings(newSettings)
-        showToast("Настройки обновлены")
+        viewModelScope.launch {
+            repository.updateSettings(newSettings)
+        }
+    }
+    
+    fun deleteFile(fileId: Long) {
+        viewModelScope.launch {
+            repository.deleteFile(fileId)
+            closeTab(fileId)
+        }
+    }
+
+    fun runTerminalCommand(cmd: String) {
+        _terminalLogs.value = _terminalLogs.value + "> $cmd"
+        _terminalLogs.value = _terminalLogs.value + "Command executed."
+    }
+
+    fun createFolder(folderName: String) {
+        createNewFile("", folderName, isFolder = true)
+    }
+
+    fun renameProject(projectId: Long, newName: String) {
+        viewModelScope.launch {
+            val proj = repository.getProjectById(projectId)
+            if (proj != null) {
+                repository.updateProject(proj.copy(name = newName))
+            }
+        }
     }
 
     fun clearChat() {

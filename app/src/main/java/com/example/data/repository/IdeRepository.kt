@@ -30,6 +30,11 @@ class IdeRepository(private val db: AppDatabase) {
         return db.fileDao().getFileByPath(projectId, path)
     }
 
+
+    suspend fun getProjectById(id: Long): Project? {
+        return db.projectDao().getProjectById(id)
+    }
+
     suspend fun createProject(name: String, description: String, language: String): Long {
         val proj = Project(
             name = name,
@@ -63,6 +68,9 @@ class IdeRepository(private val db: AppDatabase) {
         db.projectDao().deleteProjectById(id)
     }
 
+
+
+
     suspend fun saveFile(file: ProjectFile): Long {
         return db.fileDao().insertFile(file)
     }
@@ -84,8 +92,21 @@ class IdeRepository(private val db: AppDatabase) {
         }
     }
 
+    suspend fun updateChatMessage(messageId: Long, content: String, codeBlocksJson: String) {
+        db.chatDao().updateMessage(messageId, content, codeBlocksJson)
+    }
+
     suspend fun insertChatMessage(message: ChatMessage): Long {
-        return db.chatDao().insertMessage(message)
+        return return db.chatDao().insertMessage(message)
+    }
+
+
+    suspend fun deleteMessage(id: Long) {
+        db.chatDao().deleteMessage(id)
+    }
+
+    suspend fun getMessageById(id: Long): ChatMessage? {
+        return db.chatDao().getMessageById(id)
     }
 
     suspend fun clearChat(projectId: Long) {

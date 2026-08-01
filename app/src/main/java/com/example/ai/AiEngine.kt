@@ -95,6 +95,147 @@ object AiEngine {
         }
     }
 
+    fun generateAiResponseStream(
+        prompt: String,
+        provider: ApiProvider,
+        projectFiles: List<ProjectFile>,
+        activeFile: ProjectFile?,
+        specificCodeToModify: String? = null
+    ): kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.flow {
+        val apiKey = provider.apiKey.ifBlank { BuildConfig.GEMINI_API_KEY }
+        if (apiKey.isBlank() && provider.type != "OLLAMA") {
+            throw Exception("API ключ не настроен.")
+        }
+
+        if (provider.type == "GEMINI") {
+            streamGeminiRestApi(apiKey, provider, prompt, projectFiles, activeFile, specificCodeToModify).collect { emit(it) }
+        } else {
+            streamOpenAiCompatibleApi(apiKey, provider, prompt, projectFiles, activeFile, specificCodeToModify).collect { emit(it) }
+        }
+    }
+
+    private fun streamGeminiRestApi(
+        apiKey: String,
+        provider: ApiProvider,
+        prompt: String,
+        projectFiles: List<ProjectFile>,
+        activeFile: ProjectFile?,
+        codeToModify: String?
+    ): kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.flow {
+        val base = provider.baseUrl.trimEnd('/')
+        val urlStr = if (base.endsWith("/v1beta") || base.endsWith("/v1")) {
+            "$base/models/${provider.selectedModel.ifBlank { "gemini-1.5-flash" }}:streamGenerateContent?alt=sse&key=$apiKey"
+        } else {
+            "$base/v1beta/models/${provider.selectedModel.ifBlank { "gemini-1.5-flash" }}:streamGenerateContent?alt=sse&key=$apiKey"
+        }
+        val url = URL(urlStr)
+        val conn = url.openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.doOutput = true
+        conn.connectTimeout = 30000
+        conn.readTimeout = 30000
+
+        val contextPrompt = buildContextPrompt(prompt, projectFiles, activeFile, codeToModify)
+
+        val jsonBody = JSONObject().apply {
+            put("contents", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("parts", JSONArray().apply {
+                        put(JSONObject().put("text", contextPrompt))
+                    })
+                })
+            })
+        }
+
+        OutputStreamWriter(conn.outputStream).use { it.write(jsonBody.toString()) }
+        val code = conn.responseCode
+        if (code in 200..299) {
+            BufferedReader(InputStreamReader(conn.inputStream)).use { reader ->
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    if (line!!.startsWith("data: ")) {
+                        try {
+                            val json = JSONObject(line!!.substring(6))
+                            val candidates = json.optJSONArray("candidates")
+                            if (candidates != null && candidates.length() > 0) {
+                                val text = candidates.getJSONObject(0)
+                                    .optJSONObject("content")
+                                    ?.optJSONArray("parts")
+                                    ?.optJSONObject(0)
+                                    ?.optString("text") ?: ""
+                                if (text.isNotEmpty()) emit(text)
+                            }
+                        } catch (e: Exception) {}
+                    }
+                }
+            }
+        } else {
+            val err = conn.errorStream?.bufferedReader()?.readText() ?: ""
+            throw Exception("Ошибка API ($code): $err")
+        }
+    }
+
+    private fun streamOpenAiCompatibleApi(
+        apiKey: String,
+        provider: ApiProvider,
+        prompt: String,
+        projectFiles: List<ProjectFile>,
+        activeFile: ProjectFile?,
+        codeToModify: String?
+    ): kotlinx.coroutines.flow.Flow<String> = kotlinx.coroutines.flow.flow {
+        val url = URL("${provider.baseUrl.trimEnd('/')}/chat/completions")
+        val conn = url.openConnection() as HttpURLConnection
+        conn.requestMethod = "POST"
+        conn.setRequestProperty("Content-Type", "application/json")
+        if (apiKey.isNotBlank()) {
+            conn.setRequestProperty("Authorization", "Bearer $apiKey")
+        }
+        conn.doOutput = true
+        conn.connectTimeout = 30000
+        conn.readTimeout = 30000
+
+        val contextPrompt = buildContextPrompt(prompt, projectFiles, activeFile, codeToModify)
+
+        val jsonBody = JSONObject().apply {
+            put("model", provider.selectedModel)
+            put("stream", true)
+            put("messages", JSONArray().apply {
+                put(JSONObject().apply {
+                    put("role", "system")
+                    put("content", "You are an expert AI IDE assistant.")
+                })
+                put(JSONObject().apply {
+                    put("role", "user")
+                    put("content", contextPrompt)
+                })
+            })
+        }
+
+        OutputStreamWriter(conn.outputStream).use { it.write(jsonBody.toString()) }
+        val code = conn.responseCode
+        if (code in 200..299) {
+            BufferedReader(InputStreamReader(conn.inputStream)).use { reader ->
+                var line: String?
+                while (reader.readLine().also { line = it } != null) {
+                    if (line!!.startsWith("data: ") && !line!!.contains("[DONE]")) {
+                        try {
+                            val json = JSONObject(line!!.substring(6))
+                            val text = json.optJSONArray("choices")
+                                ?.optJSONObject(0)
+                                ?.optJSONObject("delta")
+                                ?.optString("content") ?: ""
+                            if (text.isNotEmpty()) emit(text)
+                        } catch (e: Exception) {}
+                    }
+                }
+            }
+        } else {
+            val err = conn.errorStream?.bufferedReader()?.readText() ?: ""
+            throw Exception("Ошибка API ($code): $err")
+        }
+    }
+
     suspend fun generateAiResponse(
         prompt: String,
         provider: ApiProvider,
@@ -276,7 +417,7 @@ object AiEngine {
         return contextPrompt.toString()
     }
 
-    private fun parseResponseToAiResponse(text: String): AiResponse {
+    fun parseResponseToAiResponse(text: String): AiResponse {
         val codeBlocks = mutableListOf<CodeBlock>()
         val regex = Regex("```([a-zA-Z0-9_+-]*)\n([\\s\\S]*?)```")
         val matches = regex.findAll(text)

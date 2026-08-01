@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import com.example.ui.utils.buildAnnotatedCodeLine
+
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -14,6 +16,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -28,6 +31,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
+import com.example.ui.utils.buildAnnotatedCodeLine
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.models.CodeBlock
@@ -280,7 +284,7 @@ fun CodeBlockCard(
                             .background(AccentIndigo)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Send,
+                            imageVector = Icons.AutoMirrored.Filled.Send,
                             contentDescription = "Submit modification",
                             tint = Color.Black,
                             modifier = Modifier.size(18.dp)
@@ -292,49 +296,3 @@ fun CodeBlockCard(
     }
 }
 
-private fun buildAnnotatedCodeLine(line: String, lang: String) = buildAnnotatedString {
-    val trimmed = line.trimStart()
-    if (trimmed.startsWith("//") || trimmed.startsWith("#") || trimmed.startsWith("/*")) {
-        withStyle(style = SpanStyle(color = SyntaxComment)) {
-            append(line)
-        }
-        return@buildAnnotatedString
-    }
-
-    val words = line.split(Regex("(?<=\\s)|(?=\\s)|(?<=[(),.<>:;=+\\-*/])|(?=[(),.<>:;=+\\-*/])"))
-    val keywords = setOf(
-        "fun", "val", "var", "class", "object", "sealed", "interface", "import", "package", "return",
-        "if", "else", "when", "for", "while", "suspend", "private", "public", "protected", "override",
-        "const", "type", "export", "const", "let", "def", "async", "await", "import", "from"
-    )
-
-    words.forEach { word ->
-        when {
-            keywords.contains(word) -> {
-                withStyle(style = SpanStyle(color = SyntaxKeyword, fontWeight = FontWeight.Bold)) {
-                    append(word)
-                }
-            }
-            word.startsWith("\"") || word.endsWith("\"") || word.startsWith("'") || word.endsWith("'") -> {
-                withStyle(style = SpanStyle(color = SyntaxString)) {
-                    append(word)
-                }
-            }
-            word.toIntOrNull() != null || word.toDoubleOrNull() != null -> {
-                withStyle(style = SpanStyle(color = SyntaxNumber)) {
-                    append(word)
-                }
-            }
-            word.firstOrNull()?.isUpperCase() == true -> {
-                withStyle(style = SpanStyle(color = SyntaxType)) {
-                    append(word)
-                }
-            }
-            else -> {
-                withStyle(style = SpanStyle(color = Color.White)) {
-                    append(word)
-                }
-            }
-        }
-    }
-}

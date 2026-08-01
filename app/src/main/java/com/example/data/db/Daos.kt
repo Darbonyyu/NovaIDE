@@ -57,8 +57,18 @@ interface ChatDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: ChatMessage): Long
 
+    @Query("UPDATE chat_messages SET content = :content, codeBlocksJson = :codeBlocksJson WHERE id = :id")
+    suspend fun updateMessage(id: Long, content: String, codeBlocksJson: String)
+
     @Query("DELETE FROM chat_messages WHERE projectId = :projectId")
     suspend fun clearChatForProject(projectId: Long)
+
+    @Query("DELETE FROM chat_messages WHERE id = :id")
+    suspend fun deleteMessage(id: Long)
+
+    @Query("SELECT * FROM chat_messages WHERE id = :id LIMIT 1")
+    suspend fun getMessageById(id: Long): ChatMessage?
+
 }
 
 @Dao

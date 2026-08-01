@@ -7,6 +7,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -19,6 +20,7 @@ fun MainScreen(
 ) {
     val context = LocalContext.current
     var currentTab by remember { mutableStateOf<NavTab>(NavTab.Chat) }
+    val saveableStateHolder = rememberSaveableStateHolder()
 
     val currentProject by viewModel.currentProject.collectAsState()
     val allProjects by viewModel.allProjects.collectAsState()
@@ -75,7 +77,8 @@ fun MainScreen(
                 .padding(innerPadding)
         ) {
             Crossfade(targetState = currentTab, label = "TabSwitch") { tab ->
-                when (tab) {
+                saveableStateHolder.SaveableStateProvider(tab) {
+                    when (tab) {
                     NavTab.Chat -> ChatScreen(
                         viewModel = viewModel,
                         onNavigateToWorkspace = { currentTab = NavTab.Projects }
@@ -87,6 +90,7 @@ fun MainScreen(
                     )
                     NavTab.Api -> ApiProvidersScreen(viewModel = viewModel)
                     NavTab.Settings -> SettingsScreen(viewModel = viewModel)
+                }
                 }
             }
         }
